@@ -3,7 +3,8 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
+import networkx as nx
 
 class LabyrinthEnv(gym.Env):
     metadata = {'render_modes': ['human']}
@@ -95,12 +96,23 @@ class LabyrinthEnv(gym.Env):
     def calculate_reward(self):
         if np.array_equal(self._agent_location, self.target_location):
             reward = +1
-        elif np.array_equal(self._agent_location, self._old_location):
-            reward = -1
         else:
-            reward = -0.01
-
+            path_len = self.shortest_path_length(self.maze, self._agent_location, self.target_location)
+            reward = -0.01 - 0.1 * path_len
         return reward
+
+    def shortest_path_length(self, maze, start, goal):
+        graph = nx.grid_graph(dim=[maze.shape[0], maze.shape[1]])
+        for x in range(maze.shape[0]):
+            for y in range(maze.shape[1]):
+                if maze[x, y] == 1:
+                    graph.remove_node((x, y))
+        try:
+            path_length = nx.shortest_path_length(graph, source=tuple(start), target=tuple(goal))
+        except nx.NetworkXNoPath:
+            print('No path found')
+            path_length = float('inf')
+        return path_length
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -144,3 +156,32 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
+
+if __name__ == '__main__':
+    env = LabyrinthEnv(size=5, seed=1)
+    
+    observation, info = env.reset()
+    print(f"Initial observation: {observation}")
+
+    total_steps = 100
+    total_reward = 0
+    done = False
+
+    for step in range(total_steps):
+        env.render()
+
+        print(f"Optimal path distance: {env.shortest_path_length(env.maze, env._agent_location, env.target_location)}")
+        action = env.action_space.sample()
+        print(f"Step {step + 1}: Taking action {action}")
+
+        observation, reward, done, truncated, info = env.step(action)
+        total_reward += reward
+
+        print(f"Observation: {observation}, Reward: {reward}, done: {done}")
+
+        if done or truncated:
+            print("Episode finished!")
+            break
+
+    print(f"Total reward: {total_reward}")
+    env.close()
