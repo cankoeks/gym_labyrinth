@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from generator import MazeGenerator
+from .generator import MazeGenerator
 import networkx as nx
 
 class LabyrinthEnv(gym.Env):
@@ -156,32 +156,3 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
-
-if __name__ == '__main__':
-    env = LabyrinthEnv(size=5, seed=1)
-    
-    observation, info = env.reset()
-    print(f"Initial observation: {observation}")
-
-    total_steps = 100
-    total_reward = 0
-    done = False
-
-    for step in range(total_steps):
-        env.render()
-
-        print(f"Optimal path distance: {env.shortest_path_length(env.maze, env._agent_location, env.target_location)}")
-        action = env.action_space.sample()
-        print(f"Step {step + 1}: Taking action {action}")
-
-        observation, reward, done, truncated, info = env.step(action)
-        total_reward += reward
-
-        print(f"Observation: {observation}, Reward: {reward}, done: {done}")
-
-        if done or truncated:
-            print("Episode finished!")
-            break
-
-    print(f"Total reward: {total_reward}")
-    env.close()
