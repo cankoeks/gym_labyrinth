@@ -191,31 +191,3 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
-
-
-if __name__ == "__main__":
-    env = LabyrinthEnv(size=10, seed=1)
-    observation, info = env.reset()
-    print("Initial Observation:", observation)
-    env.render(mode='human')
-
-    total_reward = 0
-
-    while True:
-        action = env.action_space.sample()
-        print(f"Step {step + 1}: Taking action {action}")
-
-        observation, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
-
-        print(f"Observation: {observation}, Reward: {reward}, Terminated: {terminated}, Info: {info}")
-
-        env.render(mode='human')
-
-        if terminated or truncated:
-            print("Episode finished!")
-            break
-
-    print(f"Total reward after {num_steps} steps: {total_reward}")
-
-    env.close()
