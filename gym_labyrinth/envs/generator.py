@@ -21,7 +21,7 @@ class MazeGenerator:
             directions = np.array([(0, 2), (0, -2), (2, 0), (-2, 0)])
 
             while stack:
-                x, y = stack.pop()
+                x, y = stack.pop()  
                 np.random.shuffle(directions)
                 for dx, dy in directions:
                     nx, ny = x + dx, y + dy
@@ -75,6 +75,21 @@ class MazeGenerator:
 
         return False
 
+    def empty_maze(self):
+        width = (self.width // 2) * 2 + 1
+        height = (self.height // 2) * 2 + 1
+        maze = np.zeros((height, width), dtype=int)
+
+        maze[0, :] = 1
+        maze[-1, :] = 1
+        maze[:, 0] = 1
+        maze[:, -1] = 1
+
+        maze[self.start[0], self.start[1]] = 0
+        maze[self.goal[0], self.goal[1]] = 2
+
+        return maze
+
 def visualize_maze(maze):
     plt.figure(figsize=(10, 10))
     plt.imshow(maze, cmap="binary", origin="upper")
@@ -84,5 +99,5 @@ def visualize_maze(maze):
     plt.show()
 
 if __name__ == "__main__":
-    maze = MazeGenerator(size=10).random_maze(complexity=0.1, density=0.1)
+    maze = MazeGenerator(size=10).empty_maze()
     print(maze)

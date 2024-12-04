@@ -17,12 +17,14 @@ class LabyrinthEnv(gym.Env):
         self.start_location = np.array([1, 1], dtype=np.int64)
         self.target_location = np.array([size - 2, size - 2], dtype=np.int64)
 
-        self.maze = MazeGenerator(size=self.size).random_maze()
-
+        self.generator = MazeGenerator(size=self.size)
+        self.maze = self.generator.random_maze()
+        
         self.observation_space = gym.spaces.Box(
-            low=0, high=max(self.size - 1, 1), shape=(6,), dtype=np.int64
+            low=np.array([0, 0, 0, 0, -self.size, -self.size]),
+            high=np.array([1, 1, 1, 1, self.size, self.size]),
+            dtype=np.int64
         )
-
         self.action_space = gym.spaces.Discrete(4)
 
         self._action_to_direction = {
@@ -36,11 +38,15 @@ class LabyrinthEnv(gym.Env):
         self._ax = None
         self._agent_trail = []
 
+        self.max_steps = size * 10  
+        self.current_step = 0
+
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        super().reset(seed=seed)
+        # self.maze = self.generator.random_maze()
 
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
+        self.current_step = 0
 
         observation = self._get_obs()
         info = self._get_info()
@@ -48,9 +54,15 @@ class LabyrinthEnv(gym.Env):
         return observation, info
 
     def _get_info(self):
-        return {}
+        reached_goal = np.array_equal(self._agent_location, self.target_location)
+
+        info = {
+            'reached_goal': reached_goal,
+        }
+        return info
 
     def _get_obs(self):
+        relative_goal = self.target_location - self._agent_location
         current_pos = self._agent_location
 
         left = self.maze[current_pos[0] - 1, current_pos[1]]
@@ -59,12 +71,11 @@ class LabyrinthEnv(gym.Env):
         down = self.maze[current_pos[0], current_pos[1] + 1]
 
         observation = np.array([
-            self._agent_location[0],
-            self._agent_location[1],
             left,
             right,
             up,
-            down
+            down,
+            *relative_goal
         ], dtype=np.int64)
         return observation
 
@@ -84,9 +95,14 @@ class LabyrinthEnv(gym.Env):
         else:
             pass
 
-        self._agent_trail.append(self._old_location.copy())
-
         terminated = np.array_equal(self._agent_location, self.target_location)
+
+        self._agent_trail.append(self._old_location.copy())
+        self.current_step += 1
+
+        if self.current_step >= self.max_steps:
+            terminated = True
+
         reward = self.calculate_reward()
         observation = self._get_obs()
         info = self._get_info()
@@ -95,11 +111,12 @@ class LabyrinthEnv(gym.Env):
 
     def calculate_reward(self):
         if np.array_equal(self._agent_location, self.target_location):
-            reward = +1
+            return 50
+        elif np.array_equal(self._agent_location, self._old_location):
+            return - 1
         else:
             path_len = self.shortest_path_length(self.maze, self._agent_location, self.target_location)
-            reward = -0.01 - 0.1 * path_len
-        return reward
+            return 1 / (path_len + 1) - 0.01  # Encourage shorter path and penalize steps
 
     def shortest_path_length(self, maze, start, goal):
         graph = nx.grid_graph(dim=[maze.shape[0], maze.shape[1]])
@@ -119,40 +136,86 @@ class LabyrinthEnv(gym.Env):
 
         return [seed]
 
-    def render(self, mode='human'):
-        if self._figure is None:
-            self._figure, self._ax = plt.subplots()
-            plt.ion()
-            plt.show()
+    def render(self, mode='console'):
+        if mode == 'human':
+            if self._figure is None:
+                self._figure, self._ax = plt.subplots()
+                plt.ion()
+                plt.show()
 
-        maze_rgb = np.zeros(self.maze.shape + (3,), dtype=float)
+            maze_rgb = np.zeros(self.maze.shape + (3,), dtype=float)
 
-        maze_rgb[self.maze == 1] = [0, 0, 0]  # Black
-        maze_rgb[self.maze == 0] = [1, 1, 1]  # White
-       
-        for pos in self._agent_trail:
-            maze_rgb[pos[0], pos[1]] = [0.5, 0.5, 0.5]  # Grey
+            maze_rgb[self.maze == 1] = [0, 0, 0]  # Black for walls
+            maze_rgb[self.maze == 0] = [1, 1, 1]  # White for free spaces
 
-        start = self.start_location
-        maze_rgb[start[0], start[1]] = [0, 1, 0]  # Green
+            for pos in self._agent_trail:
+                maze_rgb[pos[0], pos[1]] = [0.5, 0.5, 0.5]  # Grey for trail
 
-        goal = self.target_location
-        maze_rgb[goal[0], goal[1]] = [1, 0, 0]  # Red
+            start = self.start_location
+            maze_rgb[start[0], start[1]] = [0, 1, 0]  # Green for start
 
-        agent_pos = self._agent_location
-        maze_rgb[agent_pos[0], agent_pos[1]] = [1.0, 0.5, 0.0]  # Orange
+            goal = self.target_location
+            maze_rgb[goal[0], goal[1]] = [1, 0, 0]  # Red for goal
 
-        self._ax.clear()
-        self._ax.imshow(maze_rgb, origin='lower')
+            agent_pos = self._agent_location
+            maze_rgb[agent_pos[0], agent_pos[1]] = [1.0, 0.5, 0.0]  # Orange for agent
 
-        self._ax.set_xticks([])
-        self._ax.set_yticks([])
+            self._ax.clear()
+            self._ax.imshow(maze_rgb, origin='lower')
 
-        plt.draw()
-        plt.pause(0.001)
+            self._ax.set_xticks([])
+            self._ax.set_yticks([])
+
+            plt.draw()
+            plt.pause(0.001)
+
+        elif mode == 'console':
+            maze_copy = self.maze.copy()
+
+            maze_copy[tuple(self._agent_location)] = 2
+            maze_copy[tuple(self.target_location)] = 3
+
+            for row in maze_copy:
+                line = ''.join(
+                    '#' if cell == 1 else
+                    'A' if cell == 2 else
+                    'G' if cell == 3 else
+                    ' '
+                    for cell in row
+                )
+                print(line)
+            print("\n")
 
     def close(self):
         if self._figure:
             plt.close(self._figure)
             self._figure = None
             self._ax = None
+
+
+if __name__ == "__main__":
+    env = LabyrinthEnv(size=10, seed=1)
+    observation, info = env.reset()
+    print("Initial Observation:", observation)
+    env.render(mode='human')
+
+    total_reward = 0
+
+    while True:
+        action = env.action_space.sample()
+        print(f"Step {step + 1}: Taking action {action}")
+
+        observation, reward, terminated, truncated, info = env.step(action)
+        total_reward += reward
+
+        print(f"Observation: {observation}, Reward: {reward}, Terminated: {terminated}, Info: {info}")
+
+        env.render(mode='human')
+
+        if terminated or truncated:
+            print("Episode finished!")
+            break
+
+    print(f"Total reward after {num_steps} steps: {total_reward}")
+
+    env.close()
