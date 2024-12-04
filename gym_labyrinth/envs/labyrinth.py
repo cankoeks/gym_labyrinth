@@ -3,13 +3,15 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from generator import MazeGenerator
+from .generator import MazeGenerator
 import networkx as nx
+import random
 
 class LabyrinthEnv(gym.Env):
     metadata = {'render_modes': ['human']}
 
     def __init__(self, size: int = 10, seed: Optional[int] = None):
+        self.action_space = gym.spaces.Discrete(4)
         self.seed(seed)
         self.size = size
         self._current_location = None
@@ -25,7 +27,6 @@ class LabyrinthEnv(gym.Env):
             high=np.array([1, 1, 1, 1, self.size, self.size]),
             dtype=np.int64
         )
-        self.action_space = gym.spaces.Discrete(4)
 
         self._action_to_direction = {
             0: np.array([1, 0]),   # right
@@ -134,6 +135,8 @@ class LabyrinthEnv(gym.Env):
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         np.random.seed(seed) 
+        random.seed(seed)
+        self.action_space.seed(seed)
 
         return [seed]
 
