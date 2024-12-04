@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
 import networkx as nx
 
 class LabyrinthEnv(gym.Env):
@@ -133,6 +133,7 @@ class LabyrinthEnv(gym.Env):
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
+        np.random.seed(seed) 
 
         return [seed]
 
