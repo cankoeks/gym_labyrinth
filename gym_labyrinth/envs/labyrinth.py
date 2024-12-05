@@ -51,6 +51,8 @@ class LabyrinthEnv(gym.Env):
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         # self.maze = self.generator.random_maze()
 
+        self.collected_rewards = set()
+        self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
         self.current_step = 0
@@ -117,26 +119,33 @@ class LabyrinthEnv(gym.Env):
         return observation, reward, terminated, False, info
 
     def calculate_reward(self):
+        agent_pos = tuple(self._agent_location)
+
         if np.array_equal(self._agent_location, self.target_location):
             return 50
 
-        if np.array_equal(self._agent_location, self._old_location):
-            return -2
+        if agent_pos in self.shortest_path:
+            if agent_pos not in self.collected_rewards:
+                self.collected_rewards.add(agent_pos)
+                return 10 
+            else:
+                return -0.5
 
-        agent_pos = tuple(self._agent_location)
-        path_len = self.path_lengths.get(agent_pos, float('inf'))
+        return -2
 
-        progress_reward = 1 / (path_len + 1)
-        step_penalty = -0.01
+    def compute_shortest_path(self, start, goal):
+        graph = nx.grid_graph(dim=[self.maze.shape[0], self.maze.shape[1]])
+        for x in range(self.maze.shape[0]):
+            for y in range(self.maze.shape[1]):
+                if self.maze[x, y] == 1: 
+                    graph.remove_node((x, y))
 
-        reward = progress_reward + step_penalty
+        try:
+            path = nx.shortest_path(graph, source=tuple(start), target=tuple(goal))
+        except nx.NetworkXNoPath:
+            path = []
 
-        old_path_len = self.path_lengths.get(tuple(self._old_location), float('inf'))
-        if path_len > old_path_len:
-            reward -= 0.05
-
-        return reward
-
+        return path
 
     def compute_shortest_path_lengths(self, maze, goal):
         graph = nx.grid_graph(dim=[maze.shape[0], maze.shape[1]])
@@ -164,8 +173,14 @@ class LabyrinthEnv(gym.Env):
 
             maze_rgb = np.zeros(self.maze.shape + (3,), dtype=float)
 
+
+
             maze_rgb[self.maze == 1] = [0, 0, 0]  # Black for walls
             maze_rgb[self.maze == 0] = [1, 1, 1]  # White for free spaces
+
+            if hasattr(self, 'shortest_path') and self.shortest_path:
+                for pos in self.shortest_path:
+                    maze_rgb[pos[0], pos[1]] = [0.8, 0.8, 0.2]  # Yellow for the shortest path
 
             for pos in self._agent_trail:
                 maze_rgb[pos[0], pos[1]] = [0.5, 0.5, 0.5]  # Grey for trail
@@ -210,3 +225,42 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
+
+def main():
+    # Initialize the environment
+    env = LabyrinthEnv(size=50, seed=42, maze_type='random')
+
+    # Reset the environment
+    observation, info = env.reset()
+    print("Initial Observation:", observation)
+
+    done = False
+    total_reward = 0
+    steps = 0
+
+    while not done:
+        # Choose a random action (replace this with a policy for smarter behavior)
+        action = env.action_space.sample()
+
+        # Take a step in the environment
+        observation, reward, terminated, truncated, info = env.step(action)
+
+        # Update the total reward and steps
+        total_reward += reward
+        steps += 1
+
+        # Render the environment
+
+        print(f"Step: {steps}, Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
+        print("Observation:", observation)
+
+        # Check termination conditions
+        done = terminated or truncated
+        env.render(mode='human')
+
+
+    print("Episode finished!")
+    print(f"Total Steps: {steps}, Total Reward: {total_reward}")
+
+if __name__ == "__main__":
+    main()
