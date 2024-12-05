@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from generator import MazeGenerator
+from .generator import MazeGenerator
 import networkx as nx
 import random
 import time
