@@ -27,10 +27,11 @@ class LabyrinthEnv(gym.Env):
             self.maze = self.generator.empty_maze()
 
         self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
-        
+        self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
+
         self.observation_space = gym.spaces.Box(
-            low=np.array([0, 0, 0, 0, -self.size, -self.size]),
-            high=np.array([1, 1, 1, 1, self.size, self.size]),
+            low=np.array([0, 0, 0, 0]),
+            high=np.array([1, 1, 1, 1]),
             dtype=np.int64
         )
 
@@ -52,7 +53,6 @@ class LabyrinthEnv(gym.Env):
         # self.maze = self.generator.random_maze()
 
         self.collected_rewards = set()
-        self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
         self.current_step = 0
@@ -71,7 +71,6 @@ class LabyrinthEnv(gym.Env):
         return info
 
     def _get_obs(self):
-        relative_goal = self.target_location - self._agent_location
         current_pos = self._agent_location
 
         left = self.maze[current_pos[0] - 1, current_pos[1]]
@@ -84,7 +83,6 @@ class LabyrinthEnv(gym.Env):
             right,
             up,
             down,
-            *relative_goal
         ], dtype=np.int64)
         return observation
 
@@ -139,7 +137,6 @@ class LabyrinthEnv(gym.Env):
             for y in range(self.maze.shape[1]):
                 if self.maze[x, y] == 1: 
                     graph.remove_node((x, y))
-
         try:
             path = nx.shortest_path(graph, source=tuple(start), target=tuple(goal))
         except nx.NetworkXNoPath:
@@ -172,8 +169,6 @@ class LabyrinthEnv(gym.Env):
                 plt.show()
 
             maze_rgb = np.zeros(self.maze.shape + (3,), dtype=float)
-
-
 
             maze_rgb[self.maze == 1] = [0, 0, 0]  # Black for walls
             maze_rgb[self.maze == 0] = [1, 1, 1]  # White for free spaces
@@ -225,42 +220,3 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
-
-def main():
-    # Initialize the environment
-    env = LabyrinthEnv(size=50, seed=42, maze_type='random')
-
-    # Reset the environment
-    observation, info = env.reset()
-    print("Initial Observation:", observation)
-
-    done = False
-    total_reward = 0
-    steps = 0
-
-    while not done:
-        # Choose a random action (replace this with a policy for smarter behavior)
-        action = env.action_space.sample()
-
-        # Take a step in the environment
-        observation, reward, terminated, truncated, info = env.step(action)
-
-        # Update the total reward and steps
-        total_reward += reward
-        steps += 1
-
-        # Render the environment
-
-        print(f"Step: {steps}, Action: {action}, Reward: {reward}, Total Reward: {total_reward}")
-        print("Observation:", observation)
-
-        # Check termination conditions
-        done = terminated or truncated
-        env.render(mode='human')
-
-
-    print("Episode finished!")
-    print(f"Total Steps: {steps}, Total Reward: {total_reward}")
-
-if __name__ == "__main__":
-    main()
