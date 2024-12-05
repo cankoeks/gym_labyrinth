@@ -17,7 +17,7 @@ class LabyrinthEnv(gym.Env):
         self.size = size
         self._current_location = None
         self._old_location = None
-        self.start_location = np.array([1, 1], dtype=np.int64)
+        self.start_location = np.array([2, 2], dtype=np.int64)
         self.target_location = np.array([size - 2, size - 2], dtype=np.int64)
 
         self.generator = MazeGenerator(size=self.size)
@@ -47,12 +47,12 @@ class LabyrinthEnv(gym.Env):
 
         self.max_steps = size * 10  
         self.current_step = 0
+        self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         # self.maze = self.generator.random_maze()
 
         self.collected_rewards = set()
-        self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
         self.current_step = 0
@@ -97,7 +97,7 @@ class LabyrinthEnv(gym.Env):
         new_location = self._agent_location + direction
 
         if (0 <= new_location[0] < self.maze.shape[0]) and (0 <= new_location[1] < self.maze.shape[1]):
-            if self.maze[new_location[0], new_location[1]] == 0:
+            if self.maze[new_location[0], new_location[1]] == 0 or self.maze[new_location[0], new_location[1]] == 2:
                 self._agent_location = new_location
             else:
                 pass
@@ -127,7 +127,7 @@ class LabyrinthEnv(gym.Env):
         if agent_pos in self.shortest_path:
             if agent_pos not in self.collected_rewards:
                 self.collected_rewards.add(agent_pos)
-                return 10 
+                return 10
             else:
                 return -0.5
 
