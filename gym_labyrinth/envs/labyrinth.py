@@ -198,35 +198,3 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
-
-def main():
-    # Initialize the environment
-    start_time = time.time()
-    env = LabyrinthEnv(size=100, seed=1, maze_type='empty')
-    end_time = time.time()
-    print(f"Environment initialized in {end_time - start_time} seconds")
-    # Reset the environment to start a new episode
-    observation, info = env.reset()
-    done = False
-
-    while True:
-        # Render the current state of the maze
-        env.render(mode='human')
-        
-        # Select a random action from the action space
-        action = env.action_space.sample()
-        
-        # Take a step in the environment using the selected action
-        observation, reward, terminated, truncated, info = env.step(action)
-        
-        # Check if the episode has terminated
-        done = terminated or truncated
-        
-        # Print the action and reward for debugging
-        print(f"Action taken: {action}, Reward received: {reward}")
-    
-    # Close the environment to clean up resources
-    env.close()
-
-if __name__ == "__main__":
-    main()
