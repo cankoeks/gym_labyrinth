@@ -119,12 +119,24 @@ class LabyrinthEnv(gym.Env):
     def calculate_reward(self):
         if np.array_equal(self._agent_location, self.target_location):
             return 50
-        elif np.array_equal(self._agent_location, self._old_location):
-            return - 1
-        else:
-            agent_pos = tuple(self._agent_location)
-            path_len = path_len = self.path_lengths[agent_pos]
-            return 1 / (path_len + 1) - 0.01  # Encourage shorter path and penalize steps
+
+        if np.array_equal(self._agent_location, self._old_location):
+            return -2
+
+        agent_pos = tuple(self._agent_location)
+        path_len = self.path_lengths.get(agent_pos, float('inf'))
+
+        progress_reward = 1 / (path_len + 1)
+        step_penalty = -0.01
+
+        reward = progress_reward + step_penalty
+
+        old_path_len = self.path_lengths.get(tuple(self._old_location), float('inf'))
+        if path_len > old_path_len:
+            reward -= 0.05
+
+        return reward
+
 
     def compute_shortest_path_lengths(self, maze, goal):
         graph = nx.grid_graph(dim=[maze.shape[0], maze.shape[1]])
