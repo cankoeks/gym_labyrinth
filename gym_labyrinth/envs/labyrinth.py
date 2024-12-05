@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
 import networkx as nx
 import random
 
@@ -21,6 +21,7 @@ class LabyrinthEnv(gym.Env):
 
         self.generator = MazeGenerator(size=self.size)
         self.maze = self.generator.random_maze()
+        self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
         
         self.observation_space = gym.spaces.Box(
             low=np.array([0, 0, 0, 0, -self.size, -self.size]),
@@ -116,21 +117,18 @@ class LabyrinthEnv(gym.Env):
         elif np.array_equal(self._agent_location, self._old_location):
             return - 1
         else:
-            path_len = self.shortest_path_length(self.maze, self._agent_location, self.target_location)
+            agent_pos = tuple(self._agent_location)
+            path_len = path_len = self.path_lengths[agent_pos]
             return 1 / (path_len + 1) - 0.01  # Encourage shorter path and penalize steps
 
-    def shortest_path_length(self, maze, start, goal):
+    def compute_shortest_path_lengths(self, maze, goal):
         graph = nx.grid_graph(dim=[maze.shape[0], maze.shape[1]])
         for x in range(maze.shape[0]):
             for y in range(maze.shape[1]):
                 if maze[x, y] == 1:
                     graph.remove_node((x, y))
-        try:
-            path_length = nx.shortest_path_length(graph, source=tuple(start), target=tuple(goal))
-        except nx.NetworkXNoPath:
-            print('No path found')
-            path_length = float('inf')
-        return path_length
+        path_lengths = nx.single_source_shortest_path_length(graph, source=tuple(goal))
+        return path_lengths
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
