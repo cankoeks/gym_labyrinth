@@ -30,8 +30,8 @@ class LabyrinthEnv(gym.Env):
         self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
 
         self.observation_space = gym.spaces.Box(
-            low=np.array([0, 0, 0, 0]),
-            high=np.array([1, 1, 1, 1]),
+            low=np.array([0, 0, 0, 0, -self.size, -self.size]),
+            high=np.array([1, 1, 1, 1, self.size, self.size]),
             dtype=np.int64
         )
 
@@ -71,6 +71,7 @@ class LabyrinthEnv(gym.Env):
         return info
 
     def _get_obs(self):
+        relative_goal = self.target_location - self._agent_location
         current_pos = self._agent_location
 
         left = self.maze[current_pos[0] - 1, current_pos[1]]
@@ -83,6 +84,7 @@ class LabyrinthEnv(gym.Env):
             right,
             up,
             down,
+            *relative_goal
         ], dtype=np.int64)
         return observation
 
@@ -95,7 +97,7 @@ class LabyrinthEnv(gym.Env):
         new_location = self._agent_location + direction
 
         if (0 <= new_location[0] < self.maze.shape[0]) and (0 <= new_location[1] < self.maze.shape[1]):
-            if self.maze[new_location[0], new_location[1]] == 0:
+            if self.maze[new_location[0], new_location[1]] == 0 or self.maze[new_location[0], new_location[1]] == 2:
                 self._agent_location = new_location
             else:
                 pass
