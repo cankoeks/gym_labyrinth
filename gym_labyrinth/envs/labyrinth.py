@@ -3,14 +3,15 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
 import networkx as nx
 import random
+import time
 
 class LabyrinthEnv(gym.Env):
-    metadata = {'render_modes': ['human']}
+    metadata = {'render_modes': ['human', 'console']}
 
-    def __init__(self, size: int = 10, seed: Optional[int] = None):
+    def __init__(self, size: int = 10, seed: Optional[int] = 0, maze_type: str = 'random'):
         self.action_space = gym.spaces.Discrete(4)
         self.seed(seed)
         self.size = size
@@ -20,7 +21,11 @@ class LabyrinthEnv(gym.Env):
         self.target_location = np.array([size - 2, size - 2], dtype=np.int64)
 
         self.generator = MazeGenerator(size=self.size)
-        self.maze = self.generator.random_maze()
+        if maze_type == 'random':
+            self.maze = self.generator.random_maze()
+        elif maze_type == 'empty':
+            self.maze = self.generator.empty_maze()
+
         self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
         
         self.observation_space = gym.spaces.Box(
@@ -138,7 +143,7 @@ class LabyrinthEnv(gym.Env):
 
         return [seed]
 
-    def render(self, mode='console'):
+    def render(self, mode='human'):
         if mode == 'human':
             if self._figure is None:
                 self._figure, self._ax = plt.subplots()
@@ -193,3 +198,35 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
+
+def main():
+    # Initialize the environment
+    start_time = time.time()
+    env = LabyrinthEnv(size=100, seed=1, maze_type='empty')
+    end_time = time.time()
+    print(f"Environment initialized in {end_time - start_time} seconds")
+    # Reset the environment to start a new episode
+    observation, info = env.reset()
+    done = False
+
+    while True:
+        # Render the current state of the maze
+        env.render(mode='human')
+        
+        # Select a random action from the action space
+        action = env.action_space.sample()
+        
+        # Take a step in the environment using the selected action
+        observation, reward, terminated, truncated, info = env.step(action)
+        
+        # Check if the episode has terminated
+        done = terminated or truncated
+        
+        # Print the action and reward for debugging
+        print(f"Action taken: {action}, Reward received: {reward}")
+    
+    # Close the environment to clean up resources
+    env.close()
+
+if __name__ == "__main__":
+    main()
