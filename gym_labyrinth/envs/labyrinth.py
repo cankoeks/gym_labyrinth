@@ -9,7 +9,10 @@ import random
 import time
 
 class LabyrinthEnv(gym.Env):
-    metadata = {'render_modes': ['human', 'console']}
+    metadata = {
+        'render_modes': ['human', 'console'],
+        'render_fps': 30
+    }
 
     def __init__(self, size: int = 10, seed: Optional[int] = 0, maze_type: str = 'random'):
         self.action_space = gym.spaces.Discrete(4)
