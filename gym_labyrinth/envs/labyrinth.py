@@ -127,12 +127,9 @@ class LabyrinthEnv(gym.Env):
         if np.array_equal(self._agent_location, self.target_location):
             return 50
 
-        if agent_pos in self.shortest_path:
-            if agent_pos not in self.collected_rewards:
-                self.collected_rewards.add(agent_pos)
-                return 10 
-            else:
-                return -0.5
+        if agent_pos in self.shortest_path and agent_pos not in self.collected_rewards:
+            self.collected_rewards.add(agent_pos)
+            return 10 
 
         return -2
 
