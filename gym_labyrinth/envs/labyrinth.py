@@ -39,9 +39,11 @@ class LabyrinthEnv(gym.Env):
             goal_pos = self.shortest_path[-1]
             self.maze[goal_pos[0], goal_pos[1]] = 3
 
+        self.initial_maze = self.maze.copy()
+
         self.observation_space = gym.spaces.Box(
-            low=np.array([0, 0, 0, 0, -self.size, -self.size]),
-            high=np.array([3, 3, 3, 3, self.size, self.size]),
+            low=np.array([0, 0, 0, 0]),
+            high=np.array([3, 3, 3, 3]),
             dtype=np.int64
         )
 
@@ -60,6 +62,8 @@ class LabyrinthEnv(gym.Env):
         self.current_step = 0
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        self.maze = self.initial_maze.copy()
+
         self.collected_rewards = set()
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
@@ -79,7 +83,6 @@ class LabyrinthEnv(gym.Env):
 
     def _get_obs(self):
         current_pos = self._agent_location
-        relative_goal = self.target_location - current_pos
 
         def cell_state(x, y):
             if 0 <= x < self.size and 0 <= y < self.size:
@@ -97,7 +100,6 @@ class LabyrinthEnv(gym.Env):
             right,
             up,
             down,
-            *relative_goal
         ], dtype=np.int64)
         return observation
 
@@ -114,14 +116,17 @@ class LabyrinthEnv(gym.Env):
                 self._agent_location = new_location
 
         terminated = np.array_equal(self._agent_location, self.target_location)
-
         self._agent_trail.append(self._old_location.copy())
         self.current_step += 1
-
         if self.current_step >= self.max_steps:
             terminated = True
 
         reward = self.calculate_reward()
+
+        agent_pos = tuple(self._agent_location)
+        if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos in self.collected_rewards:
+            self.maze[agent_pos[0], agent_pos[1]] = 0
+
         observation = self._get_obs()
         info = self._get_info()
 
@@ -136,8 +141,8 @@ class LabyrinthEnv(gym.Env):
         if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos not in self.collected_rewards:
             self.collected_rewards.add(agent_pos)
             return 10
-
-        return -2
+        
+        return -1
 
     def compute_shortest_path(self, start, goal):
         graph = nx.grid_graph(dim=[self.maze.shape[0], self.maze.shape[1]])
@@ -167,7 +172,7 @@ class LabyrinthEnv(gym.Env):
         self.action_space.seed(seed)
         return [seed]
 
-    def render(self, mode='human'):
+    def render(self, mode='console'):
         if mode == 'human':
             if self._figure is None:
                 self._figure, self._ax = plt.subplots()
