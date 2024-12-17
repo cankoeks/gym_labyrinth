@@ -32,9 +32,16 @@ class LabyrinthEnv(gym.Env):
         self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
         self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
 
+        if self.shortest_path:
+            for pos in self.shortest_path[:-1]:
+                if tuple(pos) != tuple(self.start_location):
+                    self.maze[pos[0], pos[1]] = 2
+            goal_pos = self.shortest_path[-1]
+            self.maze[goal_pos[0], goal_pos[1]] = 3
+
         self.observation_space = gym.spaces.Box(
             low=np.array([0, 0, 0, 0, -self.size, -self.size]),
-            high=np.array([1, 1, 1, 1, self.size, self.size]),
+            high=np.array([3, 3, 3, 3, self.size, self.size]),
             dtype=np.int64
         )
 
@@ -49,12 +56,10 @@ class LabyrinthEnv(gym.Env):
         self._ax = None
         self._agent_trail = []
 
-        self.max_steps = size * 10  
+        self.max_steps = size * 10
         self.current_step = 0
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        # self.maze = self.generator.random_maze()
-
         self.collected_rewards = set()
         self._agent_location = self.start_location.copy()
         self._agent_trail = []
@@ -67,20 +72,25 @@ class LabyrinthEnv(gym.Env):
 
     def _get_info(self):
         reached_goal = np.array_equal(self._agent_location, self.target_location)
-
         info = {
             'reached_goal': reached_goal,
         }
         return info
 
     def _get_obs(self):
-        relative_goal = self.target_location - self._agent_location
         current_pos = self._agent_location
+        relative_goal = self.target_location - current_pos
 
-        left = self.maze[current_pos[0] - 1, current_pos[1]]
-        right = self.maze[current_pos[0] + 1, current_pos[1]]
-        up = self.maze[current_pos[0], current_pos[1] - 1]
-        down = self.maze[current_pos[0], current_pos[1] + 1]
+        def cell_state(x, y):
+            if 0 <= x < self.size and 0 <= y < self.size:
+                return self.maze[x, y]
+            else:
+                return 1
+
+        left = cell_state(current_pos[0] - 1, current_pos[1])
+        right = cell_state(current_pos[0] + 1, current_pos[1])
+        up = cell_state(current_pos[0], current_pos[1] - 1)
+        down = cell_state(current_pos[0], current_pos[1] + 1)
 
         observation = np.array([
             left,
@@ -100,12 +110,8 @@ class LabyrinthEnv(gym.Env):
         new_location = self._agent_location + direction
 
         if (0 <= new_location[0] < self.maze.shape[0]) and (0 <= new_location[1] < self.maze.shape[1]):
-            if self.maze[new_location[0], new_location[1]] == 0 or self.maze[new_location[0], new_location[1]] == 2:
+            if self.maze[new_location[0], new_location[1]] in (0, 2, 3):
                 self._agent_location = new_location
-            else:
-                pass
-        else:
-            pass
 
         terminated = np.array_equal(self._agent_location, self.target_location)
 
@@ -127,9 +133,9 @@ class LabyrinthEnv(gym.Env):
         if np.array_equal(self._agent_location, self.target_location):
             return 50
 
-        if agent_pos in self.shortest_path and agent_pos not in self.collected_rewards:
+        if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos not in self.collected_rewards:
             self.collected_rewards.add(agent_pos)
-            return 10 
+            return 10
 
         return -2
 
@@ -137,13 +143,12 @@ class LabyrinthEnv(gym.Env):
         graph = nx.grid_graph(dim=[self.maze.shape[0], self.maze.shape[1]])
         for x in range(self.maze.shape[0]):
             for y in range(self.maze.shape[1]):
-                if self.maze[x, y] == 1: 
+                if self.maze[x, y] == 1:
                     graph.remove_node((x, y))
         try:
             path = nx.shortest_path(graph, source=tuple(start), target=tuple(goal))
         except nx.NetworkXNoPath:
             path = []
-
         return path
 
     def compute_shortest_path_lengths(self, maze, goal):
@@ -157,10 +162,9 @@ class LabyrinthEnv(gym.Env):
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
-        np.random.seed(seed) 
+        np.random.seed(seed)
         random.seed(seed)
         self.action_space.seed(seed)
-
         return [seed]
 
     def render(self, mode='human'):
@@ -172,28 +176,30 @@ class LabyrinthEnv(gym.Env):
 
             maze_rgb = np.zeros(self.maze.shape + (3,), dtype=float)
 
-            maze_rgb[self.maze == 1] = [0, 0, 0]  # Black for walls
-            maze_rgb[self.maze == 0] = [1, 1, 1]  # White for free spaces
+            # Color scheme:
+            # 1: wall (black)
+            # 0: free (white)
+            # 2: shortest path (yellow)
+            # 3: goal (red)
+            maze_rgb[self.maze == 1] = [0, 0, 0]
+            maze_rgb[self.maze == 0] = [1, 1, 1]
+            maze_rgb[self.maze == 2] = [0.8, 0.8, 0.2]
+            maze_rgb[self.maze == 3] = [1, 0, 0]
 
-            if hasattr(self, 'shortest_path') and self.shortest_path:
-                for pos in self.shortest_path:
-                    maze_rgb[pos[0], pos[1]] = [0.8, 0.8, 0.2]  # Yellow for the shortest path
-
+            # Mark the agent's trail in grey
             for pos in self._agent_trail:
-                maze_rgb[pos[0], pos[1]] = [0.5, 0.5, 0.5]  # Grey for trail
+                maze_rgb[pos[0], pos[1]] = [0.5, 0.5, 0.5]
 
+            # Mark the start in green
             start = self.start_location
-            maze_rgb[start[0], start[1]] = [0, 1, 0]  # Green for start
+            maze_rgb[start[0], start[1]] = [0, 1, 0]
 
-            goal = self.target_location
-            maze_rgb[goal[0], goal[1]] = [1, 0, 0]  # Red for goal
-
+            # Mark the agent in orange
             agent_pos = self._agent_location
-            maze_rgb[agent_pos[0], agent_pos[1]] = [1.0, 0.5, 0.0]  # Orange for agent
+            maze_rgb[agent_pos[0], agent_pos[1]] = [1.0, 0.5, 0.0]
 
             self._ax.clear()
             self._ax.imshow(maze_rgb, origin='lower')
-
             self._ax.set_xticks([])
             self._ax.set_yticks([])
 
@@ -202,15 +208,14 @@ class LabyrinthEnv(gym.Env):
 
         elif mode == 'console':
             maze_copy = self.maze.copy()
-
-            maze_copy[tuple(self._agent_location)] = 2
-            maze_copy[tuple(self.target_location)] = 3
+            maze_copy[self._agent_location[0], self._agent_location[1]] = 4
 
             for row in maze_copy:
                 line = ''.join(
                     '#' if cell == 1 else
-                    'A' if cell == 2 else
+                    '.' if cell == 2 else
                     'G' if cell == 3 else
+                    'A' if cell == 4 else
                     ' '
                     for cell in row
                 )
