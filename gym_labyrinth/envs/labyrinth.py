@@ -42,8 +42,8 @@ class LabyrinthEnv(gym.Env):
         self.initial_maze = self.maze.copy()
 
         self.observation_space = gym.spaces.Box(
-            low=np.array([0, 0, 0, 0]),
-            high=np.array([3, 3, 3, 3]),
+            low=np.array([0, 0, 0, 0, -self.size, -self.size]),
+            high=np.array([3, 3, 3, 3, self.size, self.size]),
             dtype=np.int64
         )
 
@@ -78,6 +78,7 @@ class LabyrinthEnv(gym.Env):
         reached_goal = np.array_equal(self._agent_location, self.target_location)
         info = {
             'reached_goal': reached_goal,
+            'agent_location': self._agent_location,
         }
         return info
 
@@ -100,6 +101,8 @@ class LabyrinthEnv(gym.Env):
             right,
             up,
             down,
+            current_pos[0],
+            current_pos[1]
         ], dtype=np.int64)
         return observation
 
@@ -108,7 +111,6 @@ class LabyrinthEnv(gym.Env):
         direction = self._action_to_direction[action]
 
         self._old_location = self._agent_location.copy()
-
         new_location = self._agent_location + direction
 
         if (0 <= new_location[0] < self.maze.shape[0]) and (0 <= new_location[1] < self.maze.shape[1]):
@@ -136,7 +138,7 @@ class LabyrinthEnv(gym.Env):
         agent_pos = tuple(self._agent_location)
 
         if np.array_equal(self._agent_location, self.target_location):
-            return 50
+            return 100
 
         if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos not in self.collected_rewards:
             self.collected_rewards.add(agent_pos)
