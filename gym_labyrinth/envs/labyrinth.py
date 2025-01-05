@@ -33,15 +33,13 @@ class LabyrinthEnv(gym.Env):
         self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
         self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
 
-        if not self.sparse_rewards and self.shortest_path:
+        self.maze[self.target_location[0], self.target_location[1]] = 3
+
+        if not self.sparse_rewards:
             for pos in self.shortest_path[:-1]:
                 if tuple(pos) != tuple(self.start_location):
                     self.maze[pos[0], pos[1]] = 2
-            goal_pos = self.shortest_path[-1]
-            self.maze[goal_pos[0], goal_pos[1]] = 3
-        else:
-            self.maze[self.target_location[0], self.target_location[1]] = 3
-
+            
         self.initial_maze = self.maze.copy()
 
         self.observation_space = gym.spaces.Box(
