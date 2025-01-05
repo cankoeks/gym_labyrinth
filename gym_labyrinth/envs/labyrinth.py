@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
 import networkx as nx
 import random
 import time
@@ -14,7 +14,7 @@ class LabyrinthEnv(gym.Env):
         'render_fps': 30
     }
 
-    def __init__(self, size: int = 10, seed: Optional[int] = 0, maze_type: str = 'random'):
+    def __init__(self, size: int = 10, seed: Optional[int] = 0, maze_type: str = 'random', sparse_rewards: bool = False):
         self.action_space = gym.spaces.Discrete(4)
         self.seed(seed)
         self.size = size
@@ -22,6 +22,7 @@ class LabyrinthEnv(gym.Env):
         self._old_location = None
         self.start_location = np.array([1, 1], dtype=np.int64)
         self.target_location = np.array([size - 2, size - 2], dtype=np.int64)
+        self.sparse_rewards = sparse_rewards
 
         self.generator = MazeGenerator(size=self.size)
         if maze_type == 'random':
@@ -32,12 +33,14 @@ class LabyrinthEnv(gym.Env):
         self.path_lengths = self.compute_shortest_path_lengths(self.maze, self.target_location)
         self.shortest_path = self.compute_shortest_path(self.start_location, self.target_location)
 
-        if self.shortest_path:
+        if not self.sparse_rewards and self.shortest_path:
             for pos in self.shortest_path[:-1]:
                 if tuple(pos) != tuple(self.start_location):
                     self.maze[pos[0], pos[1]] = 2
             goal_pos = self.shortest_path[-1]
             self.maze[goal_pos[0], goal_pos[1]] = 3
+        else:
+            self.maze[self.target_location[0], self.target_location[1]] = 3
 
         self.initial_maze = self.maze.copy()
 
@@ -60,6 +63,8 @@ class LabyrinthEnv(gym.Env):
 
         self.max_steps = size * 10
         self.current_step = 0
+
+        self.sparse_rewards = sparse_rewards
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         self.maze = self.initial_maze.copy()
@@ -140,9 +145,10 @@ class LabyrinthEnv(gym.Env):
         if np.array_equal(self._agent_location, self.target_location):
             return 100
 
-        if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos not in self.collected_rewards:
-            self.collected_rewards.add(agent_pos)
-            return 10
+        if not self.sparse_rewards:
+            if self.maze[agent_pos[0], agent_pos[1]] == 2 and agent_pos not in self.collected_rewards:
+                self.collected_rewards.add(agent_pos)
+                return 10
         
         return -1
 
@@ -174,7 +180,7 @@ class LabyrinthEnv(gym.Env):
         self.action_space.seed(seed)
         return [seed]
 
-    def render(self, mode='console'):
+    def render(self, mode='human'):
         if mode == 'human':
             if self._figure is None:
                 self._figure, self._ax = plt.subplots()
@@ -234,3 +240,23 @@ class LabyrinthEnv(gym.Env):
             plt.close(self._figure)
             self._figure = None
             self._ax = None
+
+def main():
+    env = LabyrinthEnv(size=8, sparse_rewards=True)
+
+    while True:
+        obs, info = env.reset()
+        done = False
+        
+        while not done:
+            env.render('human')
+
+            action = env.action_space.sample()
+            obs, reward, terminated, truncated, info = env.step(action)
+            done = terminated or truncated
+            
+            print(f"Reward: {reward:.1f}")
+            time.sleep(0.1)
+
+if __name__ == "__main__":
+    main()
