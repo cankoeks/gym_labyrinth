@@ -3,7 +3,7 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from .generator import MazeGenerator
+from generator import MazeGenerator
 import networkx as nx
 import random
 import time
@@ -59,7 +59,7 @@ class LabyrinthEnv(gym.Env):
         self._ax = None
         self._agent_trail = []
 
-        self.max_steps = size * 10
+        self.max_steps = -1
         self.current_step = 0
 
         self.sparse_rewards = sparse_rewards
@@ -123,8 +123,9 @@ class LabyrinthEnv(gym.Env):
         terminated = np.array_equal(self._agent_location, self.target_location)
         self._agent_trail.append(self._old_location.copy())
         self.current_step += 1
-        if self.current_step >= self.max_steps:
-            terminated = True
+        
+        # if self.current_step >= self.max_steps:
+        #     terminated = True
 
         reward = self.calculate_reward()
 
@@ -240,21 +241,46 @@ class LabyrinthEnv(gym.Env):
             self._ax = None
 
 def main():
-    env = LabyrinthEnv(size=8, sparse_rewards=True)
-
-    while True:
-        obs, info = env.reset()
-        done = False
+    size = 20
+    seeds = list(range(1001))	
+    n_episodes = 10
+    all_seeds_results = {}
+    
+    for seed in seeds:
+        env = LabyrinthEnv(size=size, seed=seed)
+        seed_steps = []
         
-        while not done:
-            env.render('human')
-
-            action = env.action_space.sample()
-            obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
+        print(f"\nTesting seed {seed}:")
+        for episode in range(n_episodes):
+            obs, info = env.reset()
+            done = False
+            total_reward = 0
+            steps = 0
             
-            print(f"Reward: {reward:.1f}")
-            time.sleep(0.1)
+            while not done:
+                action = env.action_space.sample()
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+                total_reward += reward
+                steps += 1
+            
+            seed_steps.append(steps)
+        
+        avg_steps_seed = sum(seed_steps) / len(seed_steps)
+        all_seeds_results[seed] = seed_steps
+        print(f"Seed {seed} average steps: {avg_steps_seed:.1f}")
+        print(f"Seed {seed} min steps: {min(seed_steps)}")
+        print(f"Seed {seed} max steps: {max(seed_steps)}")
+    
+    # Calculate overall statistics
+    all_steps = [step for steps in all_seeds_results.values() for step in steps]
+    overall_avg = sum(all_steps) / len(all_steps)
+    
+    print("\nOverall Summary:")
+    print(f"Average steps across all seeds: {overall_avg:.1f}")
+    print(f"Median steps across all seeds: {np.median(all_steps):.1f}")
+    print(f"Overall min steps: {min(all_steps)}")
+    print(f"Overall max steps: {max(all_steps)}")
 
 if __name__ == "__main__":
     main()
