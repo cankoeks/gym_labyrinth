@@ -130,8 +130,8 @@ class LabyrinthEnv(gym.Env):
         self._agent_trail.append(self._old_location.copy())
         self.current_step += 1
         
-        # if self.current_step >= self.max_steps:
-        #     terminated = True
+        if self.current_step >= self.max_steps:
+            terminated = True
 
         reward = self.calculate_reward()
 
