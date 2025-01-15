@@ -3,12 +3,10 @@ import gymnasium as gym
 import numpy as np
 from gymnasium.utils import seeding
 import matplotlib.pyplot as plt
-from generator import MazeGenerator
+from .generator import MazeGenerator
 import networkx as nx
 import random
 import time
-from concurrent.futures import ThreadPoolExecutor
-import threading
 
 class LabyrinthEnv(gym.Env):
     metadata = {
@@ -61,7 +59,13 @@ class LabyrinthEnv(gym.Env):
         self._ax = None
         self._agent_trail = []
 
-        self.max_steps = -1
+        if self.size == 10:
+            self.max_steps = 1000
+        elif self.size == 20:
+            self.max_steps = 10000
+        else:
+            self.max_steps = 1000
+
         self.current_step = 0
 
         self.sparse_rewards = sparse_rewards
@@ -242,51 +246,37 @@ class LabyrinthEnv(gym.Env):
             self._figure = None
             self._ax = None
 
-def run_seed_episodes(seed, size, n_episodes):
-    env = LabyrinthEnv(size=size, seed=seed)
-    seed_steps = []
-    
-    for episode in range(n_episodes):
-        obs, info = env.reset()
-        done = False
-        total_reward = 0
-        steps = 0
-        
-        while not done:
-            action = env.action_space.sample()
-            obs, reward, terminated, truncated, info = env.step(action)
-            done = terminated or truncated
-            total_reward += reward
-            steps += 1
-        
-        seed_steps.append(steps)
-    
-    avg_steps_seed = sum(seed_steps) / len(seed_steps)
-    print(f"Seed {seed} average steps: {avg_steps_seed:.1f}")
-    print(f"Seed {seed} min steps: {min(seed_steps)}")
-    print(f"Seed {seed} max steps: {max(seed_steps)}")
-    
-    return seed_steps
-
 def main():
     size = 20
-    seeds = list(range(1001))    
+    seeds = list(range(100))	
     n_episodes = 10
     all_seeds_results = {}
     
-    # Use ThreadPoolExecutor with max_workers set to number of CPU cores
-    with ThreadPoolExecutor() as executor:
-        # Submit all tasks and store futures
-        futures = {executor.submit(run_seed_episodes, seed, size, n_episodes): seed for seed in seeds}
+    for seed in seeds:
+        env = LabyrinthEnv(size=size, seed=seed)
+        seed_steps = []
         
-        # Collect results as they complete
-        for future in concurrent.futures.as_completed(futures):
-            seed = futures[future]
-            try:
-                seed_steps = future.result()
-                all_seeds_results[seed] = seed_steps
-            except Exception as e:
-                print(f"Seed {seed} generated an exception: {e}")
+        print(f"\nTesting seed {seed}:")
+        for episode in range(n_episodes):
+            obs, info = env.reset()
+            done = False
+            total_reward = 0
+            steps = 0
+            
+            while not done:
+                action = env.action_space.sample()
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
+                total_reward += reward
+                steps += 1
+            
+            seed_steps.append(steps)
+        
+        avg_steps_seed = sum(seed_steps) / len(seed_steps)
+        all_seeds_results[seed] = seed_steps
+        print(f"Seed {seed} average steps: {avg_steps_seed:.1f}")
+        print(f"Seed {seed} min steps: {min(seed_steps)}")
+        print(f"Seed {seed} max steps: {max(seed_steps)}")
     
     # Calculate overall statistics
     all_steps = [step for steps in all_seeds_results.values() for step in steps]
